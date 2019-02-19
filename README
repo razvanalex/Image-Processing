@@ -1,0 +1,169 @@
+-------------------------------------------------------------------------------
+				Image Processing
+-------------------------------------------------------------------------------
+
+AUTOR
+  Smadu Razvan-Alexandru  315CB
+
+FISIERE INCLUSE
+  image_processing.c
+  bmp_header.h
+  Makefile
+  README
+
+README
+  Pregatiri pentru rezolvarea task-urilor
+    Citirea datelor se face din fisierul "input.txt". Deschiderea acestui fisier
+    se face prin functia open_file_read(FILE*, char*, char) care poate deschide
+    un fisier in modul text 't' sau binar 'b'. In cazul in care fisierul nu 
+    exista sau modul introdus nu este 't' sau 'b' va fi returnata eroare. 
+    Prima oara se parcurge fisierul pentru a se numara caracterele, fiind util
+    in alocarea string-urilor cu dimensiunea minima (lungimea cuvantului + 1). 
+    Pentru aceasta este folosita functia sizeof_line(FILE*). Aceasta functie 
+    returneaza numarul de caractere de la pozitia curenta (unde este pozitionat
+    cursorul) pana la finalul randului, inclusiv caracterul '\n'. Aceasta 
+    functie poate fi folosita si pentru a exclude o linie, sau mai multe pentru 
+    citire. Se reia citirea fisierului, acum pentru popularea variablilelor.
+    Dupa aceasta operatie, se deschide fisierul cu numele din image_filename si 
+    se citesc header-ele, gap-ul dintre info header si pixel array, si apoi se 
+    citeste matricea de pixeli prin functia read_bit_map(FILE*, T_pixel***, 
+    int). In aceasta functie, padding-ul este ignorat prin fseek(), calcularea 
+    acestuia facandu-se in main(), prin intermediul functiei calculate_padding(
+    T_bmp_fileheader, T_bmp_infoheader). In final se copiaza imaginea pentru 
+    rezolvarea task-ului 1.
+    
+  Explicarea constantelor definite
+    MIN_PX_VAL - reprezinta valoarea minima pe care o poate avea un pixel pe un 
+                 canal (0)
+    MAX_PX_VAL - reprezinta valoarea maxima pe care o poate avea un pixel pe un
+ 		 canal (255)
+    EXTENTION_LENGTH - reprezinta numarului de caractere din extensia imaginii
+                 (in acest caz "BMP") (3)
+    FILTERS_NUM - reprezinta numarul de filtre care sunt aplicate imaginii (3)
+    DEFAULT_TMP_MEMORY - reprezina valoare initiala a vectorului queue care
+                 retine unde pixelii north si south (mai multe detalii in 
+ 		 sectiunea Task 3) (512)
+    SIZEOF_CHUNK - dimensiunea unui tuplu de forma ((short)X, (short)Y, 
+                 (unsigned char)R, (unsigned char)G, (unsigned char)B) (7)
+    ERROR - reprezinta valoarea de iesire a functiilor atunci cand se returneaza
+         	 o eroare de alocare, existenta fisier etc. (-1)
+    MAX_IMG_HEIGHT - inaltimea maxima specificata in cerinta (2500)
+
+  Explicare structuri
+    T_bmp_fileheader - tipul care retine informatiile din File Header
+    T_bmp_infoheader - tipul care retine informatiile din Info Header
+    T_pixel - tipul care retine culoarea pixelilor
+    T_point - tipul care retine coordonatele pixelilor
+
+  Task 1
+    In urma citirii imaginii, se aplica efectul de alb-negru prin functia 
+    make_black_white(T_pixel**, int, int) care face media canalelor (R + G + B)
+    / 3 si apoi o aplica fiecarui canal in parte (pe R, pe G si pe B).
+    Dupa ce s-a prelucrat matricea de pixeli, se creaza poza generata prin
+    intermediul functiei Create_BMP_file(T_bmp_fileheader, T_bmp_infoheader,
+    char**, T_pixel**, FILE*) care adauga File Header-ul, Info Headerul, gap-ul,
+    si matricea de pixeli, la finalul fiecarei linii din matrice, adaugandu-se 
+    si padding-ul. Dupa crearea BMP-ului se copiaza imaginea pentru rezolvarea
+    task-ului urmator.
+
+  Task 2
+    Acest task este rezolvat prin functia apply_all_filters(T_bmp_fileheader*,
+    T_bmp_infoheader*, char**,  T_pixel**, char**) care contine matricile 
+    celor 3 filtre, si prefixele. Pentru fiecare filtru in parte, se copiaza
+    imaginea prin Copy_Image(T_pixel***, T_pixel**, int, int), se genereaza
+    noul nume prin functia generate_new_name(char*, char*) si apoi se aplica
+    filtrul de culoare prin apply_filter(T_pixel***, int, int, int) care
+    functioneaza astfel: Se creaza o matrice auxiliara pe care se va crea noua 
+    imagine si apoi se calculeaza fiecare canal pentru noua imagine. In cazul
+    in care pixelul nu are 8 vecini, se iau in considerare doar cei care exista
+    (avand acelasi efect ca si atunci cand se aduna 0 pentru pixelii din afara).
+    Daca valoarea obtinuta este mai mare decat MAX_PX_VAL sau mai mica decat 
+    MIN_PX_VAL atunci se va realiza corectia. In final se returneaza noua 
+    imagine prin intermediul variabilei ***image. Aceasta matrice este apoi 
+    introdusa intr-o noua imagine. La final se elibereaza memoria nenecesara.
+
+  Task 3
+    Acest tastk este rezolvat de catre functiile compress_image(T_pixel**, 
+    int, int, int) care realizeaza compresia pixelilor si compress_BMP_file( 
+    T_bmp_fileheader, T_bmp_infoheader, char**, T_pixel**, FILE*) care creaza
+    formatul compresat. Pentru a comprima pixelii, s-a folosit o matrice care
+    retine daca s-a trecut printr-un pixel, o data. Pentru fiecare pixel 
+    nevizitat se aplica algoritmul de compresie, realizat de functia
+    flood_fill(T_pixel**, int, int, int, int, int, T_pixel, int**):
+    - Se creaza un vector coada, initial cu dimensiunea DEFAULT_TMP_MEMORY.
+    - Se initializeaza prima valoare cu pixelul de referinta
+    - Pentru fiecare pixel din coada:
+	- se cauta o linie pe axa Ox, care indeplineste contitia de a apartine 
+	zonei dorite, dar care contine pixeli nevizitati (prin deplasarea spre
+	vest si est, de la pixelul din coada)
+	- se fac pixelii de culoarea dorita pe linia gasita
+	- pentru fiecare pixel din aceasta linie se cauta vecini in nord si sud
+	care satisfac contidia necesara. Acestia se adauga in vectorul queue
+	- in cazul in care vectorul este plin, se dubleaza valoarea curenta
+	a memoriei pentru coada (acest lucru poate evita segmentarea memoriei).
+	- dupa ce a fost folosit, se sterge pixelul din coada (reduce memoria,
+	dar creste timpul executiei)
+    La urma se elibereaza memoria nenecesara. Dupa aplicarea acestui algoritm,
+    poza e gata pentru a fi pusa in fisierul binar. In acesta se adauga
+    header-ele, gap-ul si apoi cvintuplurile (X,Y,R,G,B). Acestea sunt create
+    astfel: pentru fiecare pixel se verifica daca are 4 vecini de aceeasi
+    culoare prin functia count_neighbors(T_pixel**, int, int, T_point), iar
+    in caz afirmativ, acestia vor fi ignorati. In cazul contrar, se 
+    incrementeaza coordonatele (ele fiind retinute pornind de la (0,0)), si
+    se introduc impreuna cu cele 3 canale ale pixelului.
+	
+  Task 4
+    Acest task este realizat prin functia decompress_BMP_file(
+    T_bmp_fileheader*, T_bmp_infoheader*, char**, T_pixel***, FILE*).
+    Aceasta citeste header-ele, gap-ul si se calculeaza numarul de cvintupluri
+    (chunk-uri de date) astfel: pozitia curenta (imediat dupa gap) se scade
+    din dimensiunea binarului si rezulta dimensiunea blocului de cvintupluri,
+    care apoi se imparte la dimensiunea chunk-ului. Se citesc primele doua 
+    cvintupluri (daca exista), se verifica daca sunt pe aceeasi coloana si, 
+    daca au aceeasi culoare, diferenta de pixeli care lipsesc. Acestia sunt 
+    completati in matricea de pixeli. Aceasta operatie se repeta pana la 
+    finalul fisierului binar. Urmeaza apoi generarea fisierului BMP. Aceasta 
+    operatie este facuta de catre Create_BMP_file(), avand toate elementele
+    necesare. La final se elibereaza memoria nenecesara si se inchid fisierele.
+
+Observatii si note
+  - In majoritatea functiilor au fost implementate verificari de alocare de 
+  memorie si daca se lucreaza cu fisiere care exista. In cazul in care 
+  este aruncata o eroare, atunci se returneaza -1, se elibereaza memoria si 
+  se incheie executia, fiind afisat la stderr, ce eroare a aparut.
+  - Functia Free_All_Memory(const char*, ...) a fost implementata pentru 
+  a reduce numarul de linii pentru eliberarea memoriei. String-ul de formatare 
+  poate contine: %c pentru un pointer la char si %b pentru o matrice de T_pixel.
+  Pentru %b este necesara introducerea a doua argumente: adresa matricii si
+  inaltimea acesteia (numarul ce linii). Se returneaza numarul de dezalocari
+  efectuat cu succes.
+  - Citirea header-elor se putea face si direct printr-o singura instructiune
+  (datorida macro-ului pack(1)), dar am ales varianta mai lunga pentru siguranta
+  si pentru a controla exact ceea ce se pune in fisierul binar.
+   
+Teste (realizate cu Visual Studio 2013)
+  Valorile pot sa difere de la dispozitiv la dispozitiv, avand doar 
+  caracter orientativ. Toate testele din cadrul checker-ului au fost trecute
+  cu timpi sub 30 secunde (luat in considerare si timpul de verificare a 
+  testelor) pe checker-ul local.
+
+  1. 
+    Imagine: airplane.bmp
+    Threshold: 100
+    Binar: compressed.bin (generat pe airplane.bmp cu 100)
+    Timp executie: aprox. 10 secunde
+    Valoarea maxima a memoriei alocate: 28.7 Mb
+ 
+  2. 
+    Imagine: camaro.bmp
+    Threshold: 120
+    Binar: camaro.bin
+    Timp executie: aprox. 14 secunde
+    Valoarea maxima a memoriei alocate: 28.8 Mb
+
+  3. (cel mai nefavorabil caz)
+    Imagine: Untitled.bmp (poza de culoare alb (255,255,255), 2500x2500)
+    Threshold: 10
+    Binar: compressed.bin (generat pe Untitled.bmp cu 10)
+    Timp executie: aprox. 1 minut si 40 secunde
+    Valoarea maxima a memoriei alocate: 77.8 Mb
